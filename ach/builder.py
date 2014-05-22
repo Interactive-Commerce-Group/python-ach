@@ -1,6 +1,7 @@
 import math
 from datetime import datetime
 
+from banking_days import banking_days_from_now
 from data_types import (Header, FileControl, BatchHeader, BatchControl, EntryDetail)
 
 
@@ -28,7 +29,7 @@ class AchFile(object):
 
         self.batches = list()
 
-    def add_batch(self, std_ent_cls_code, batch_entries=list(), credits=True, debits=False):
+    def add_batch(self, std_ent_cls_code, batch_entries=list(), credits=True, debits=False, desc_date='', entry_date=None):
         """
         Use this to add batches to the file. For valid std_ent_cls_codes see:
         http://en.wikipedia.org/wiki/Automated_Clearing_House#SEC_codes
@@ -38,7 +39,8 @@ class AchFile(object):
 
         batch_count = len(self.batches) + 1
 
-        datestamp = datetime.today().strftime('%y%m%d') #YYMMDD
+        if entry_date is None:
+            entry_date = banking_days_from_now(2).strftime('%y%m%d')#datetime.today().strftime('%y%m%d') #YYMMDD
 
         if credits and debits:
             serv_cls_code = '200'
@@ -49,7 +51,7 @@ class AchFile(object):
 
         batch_header = BatchHeader(serv_cls_code=serv_cls_code, company_name=self.settings['immediate_org_name'],
                                    company_id=self.settings['company_id'], std_ent_cls_code=std_ent_cls_code,
-                                   entry_desc=entry_desc, desc_date='', eff_ent_date=datestamp,
+                                   entry_desc=entry_desc, desc_date=desc_date, eff_ent_date=entry_date,
                                    orig_stat_code='1', orig_dfi_id=self.settings['immediate_dest'][:8],
                                    batch_id=batch_count)
 
@@ -187,6 +189,33 @@ class AchFile(object):
 
         return ret_string
 
+
+    def pprint_line(self, name, val):
+        width = 22
+        length = len(val)
+        val = str(val + "|").ljust(width)
+        return "  %s%slen:%s\n" % (name.ljust(width), val, length)
+
+
+    def pretty_print(self):
+        raw = self.render_to_string()
+        out = ''
+        for line in raw.split('\n'):
+            if line[0] == '5':
+                out += "====== BATCH HEADER ======\n"
+                out += self.pprint_line('ServiceClassCode', line[1:4])
+                out += self.pprint_line('CompDescDate', line[63:69])
+                out += self.pprint_line('EffEntryDate', line[69:75])
+                out += self.pprint_line('OrigDFIid', line[79:87])
+            if line[0] == '6':
+                out += "====== ENTRY DETAIL ======\n"                
+                out += self.pprint_line('RecvDFIid', line[3:11])
+                out += self.pprint_line('RecvDFIcheck', line[11])
+                out += self.pprint_line('RecvDFIacct', line[12:29])
+            if line[0] == '8':
+                out += "====== BATCH CONTROL ======\n"
+                out += self.pprint_line('ServiceClassCode', line[1:4])                
+        return out
 
 class FileBatch(object):
     """
