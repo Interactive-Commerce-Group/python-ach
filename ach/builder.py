@@ -153,8 +153,8 @@ class AchFile(object):
         for i in range(rows):
             for l in range(94):
                 nines += '9'
-            if i == rows - 1: continue
-            nines += "\n"
+            #if i == rows - 1: continue
+            nines += "\r\n"
 
         return nines
 
@@ -174,12 +174,12 @@ class AchFile(object):
         Renders a nacha file as a string
         """
 
-        ret_string = self.header.get_row() + "\n"
+        ret_string = self.header.get_row() + "\r\n"
 
         for batch in self.batches:
             ret_string += batch.render_to_string()
 
-        ret_string += self.control.get_row() + "\n"
+        ret_string += self.control.get_row() + "\r\n"
 
         lines = self.get_lines(self.batches)
 
@@ -191,16 +191,22 @@ class AchFile(object):
 
 
     def pprint_line(self, name, val):
-        width = 22
+        width = 27
         length = len(val)
         val = str(val + "|").ljust(width)
-        return "  %s%slen:%s\n" % (name.ljust(width), val, length)
+        return "  %s|%slen:%s\n" % (name.ljust(width), val, length)
 
 
     def pretty_print(self):
         raw = self.render_to_string()
         out = ''
         for line in raw.split('\n'):
+            if line[0] == '1':
+                out += "====== FILE HEADER ======\n"
+                out += self.pprint_line('ImmediateDest', line[3:13])
+                out += self.pprint_line('ImmediateOrg', line[13:23])
+                out += self.pprint_line('ImmediateDestName', line[40:63])
+                out += self.pprint_line('ImmediateOrgName', line[63:86])
             if line[0] == '5':
                 out += "====== BATCH HEADER ======\n"
                 out += self.pprint_line('ServiceClassCode', line[1:4])
@@ -214,7 +220,8 @@ class AchFile(object):
                 out += self.pprint_line('RecvDFIacct', line[12:29])
             if line[0] == '8':
                 out += "====== BATCH CONTROL ======\n"
-                out += self.pprint_line('ServiceClassCode', line[1:4])                
+                out += self.pprint_line('ServiceClassCode', line[1:4])
+                out += self.pprint_line('CompanyId', line[44:54])
         return out
 
 class FileBatch(object):
@@ -286,12 +293,12 @@ class FileBatch(object):
         Renders a nacha file batch to string
         """
 
-        ret_string = self.batch_header.get_row() + "\n"
+        ret_string = self.batch_header.get_row() + "\r\n"
 
         for entry in self.entries:
-            ret_string += entry.get_row() + "\n"
+            ret_string += entry.get_row() + "\r\n"
 
-        ret_string += self.batch_control.get_row() + "\n"
+        ret_string += self.batch_control.get_row() + "\r\n"
 
         return ret_string
 
@@ -317,9 +324,9 @@ class FileEntry(object):
         Renders a nacha batch entry and addenda to string
         """
 
-        ret_string = self.entry_detail.get_row() + "\n"
+        ret_string = self.entry_detail.get_row() + "\r\n"
 
         for addenda in self.addenda_record:
-            ret_string += addenda.get_row() + "\n"
+            ret_string += addenda.get_row() + "\r\n"
 
         return ret_string
